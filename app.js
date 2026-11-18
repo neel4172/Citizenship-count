@@ -124,7 +124,7 @@ function checklist() {
       ? 'IRCC generally requires language proof and invites applicants to take a citizenship test after applying; accommodations and waivers may be available.'
       : group === '55plus'
         ? 'IRCC generally does not require language proof or a citizenship test for applicants who are 55 or older on the application date.'
-        : 'Choose your age on the planned application date. Minors have different pathways.';
+        : 'Choose your age when you apply. Minors have different pathways.';
 
   const issues = [];
   if (group === 'under18') issues.push('Use IRCC’s minor requirements rather than this adult checklist.');
@@ -148,6 +148,13 @@ function checklist() {
 
 function number(value) {
   return value.toLocaleString('en-CA', {maximumFractionDigits: 1});
+}
+
+function calculationDate(person) {
+  const todayText = today();
+  const todayDay = C.parseDate(todayText);
+  const prDay = C.parseDate(person.pr);
+  return prDay !== null && prDay > todayDay ? person.pr : todayText;
 }
 
 function readableDate(day) {
@@ -192,11 +199,11 @@ function renderDashboard() {
     const prDay = C.parseDate(person.pr);
     const futurePr = prDay !== null && prDay > todayDay;
     // Dashboard values normally use today; a future PR date is a projection.
-    const summaryDate = futurePr ? person.pr : todayText;
+    const summaryDate = calculationDate(person);
     const prepared = C.prepare({...person, asof: summaryDate});
     let remaining = '—';
     let date = '—';
-    let buttonLabel = 'Edit details';
+    let buttonLabel = 'View & edit details';
 
     if (person.checklist.ageGroup === 'under18') {
       badge.textContent = 'Review requirements';
@@ -252,8 +259,48 @@ function showDetails(personId) {
   $('people-title').focus();
 }
 
+function renderExplanation(prepared, result, futurePr) {
+  const container = $('calculation-explanation');
+  container.replaceChildren();
+  const detail = C.explain(prepared, result);
+  function line(title, text) {
+    const paragraph = document.createElement('p');
+    const label = document.createElement('strong');
+    const value = document.createElement('span');
+    label.textContent = title + ': ';
+    value.textContent = text;
+    paragraph.append(label, value);
+    container.append(paragraph);
+  }
+
+  line('Five-year window', `${futurePr ? 'For this projection, the' : 'The'} window is ${C.formatDate(result.start)} to ${C.formatDate(result.end)}. The calculation date itself is not counted.`);
+  line('PR time', `${number(detail.prCalendarDays)} calendar days in the window since your PR date − ${number(detail.prAwayDays)} full days outside Canada − ${number(detail.prExcludedDays)} other excluded days = ${number(result.prDays)} credited PR days.`);
+
+  if (!prepared.statuses.length) {
+    line('Before PR', 'No temporary-resident or protected-person periods have been entered. Add any eligible student, worker or other status periods to include them.');
+  } else {
+    line('Before PR', `${number(detail.tempStatusDays)} entered status days in the window before PR − ${number(detail.tempAwayDays)} full days outside Canada − ${number(detail.tempExcludedDays)} other excluded days = ${number(result.tempDays)} eligible days in Canada.`);
+  }
+  line('Temporary-resident credit', `${number(result.tempDays)} eligible days ÷ 2 = ${number(detail.tempCreditBeforeCap)} days. The maximum credit is 365, so ${number(result.tempCredit)} days are added.`);
+
+  const earlier = [];
+  if (detail.tempDaysBeforeWindow) earlier.push(`${number(detail.tempDaysBeforeWindow)} entered pre-PR status calendar days`);
+  if (detail.prDaysBeforeWindow) earlier.push(`${number(detail.prDaysBeforeWindow)} calendar days since your PR date`);
+  line('Older dates', earlier.length
+    ? `${earlier.join(' and ')} fall before the five-year window and are not counted here. Calendar days can include time spent outside Canada.`
+    : 'Dates before the five-year window are not counted. Before PR, only the eligible status periods you entered are included.');
+  if (detail.statusDaysAfterPr) {
+    line('Overlapping status', `${number(detail.statusDaysAfterPr)} entered status calendar days fall on or after your PR date. They are considered as PR time, not counted again as temporary-resident time.`);
+  }
+  line('Trips', `${number(result.absentDays)} full days outside Canada are recorded within the five-year window: ${number(detail.prAwayDays)} during PR, ${number(detail.tempAwayDays)} during entered pre-PR status, and ${number(detail.otherAwayDays)} outside those periods. Departure and return days usually count as days in Canada.`);
+  line('Your total', `${number(result.prDays)} PR days + ${number(result.tempCredit)} pre-PR credit = ${number(result.total)} credited days. ${number(result.remaining)} more credited days are needed to reach 1,095.`);
+  if (futurePr) line('Future dates', 'This is a projection based on your entered PR and status dates. Future time is assumed, and your actual result can change.');
+}
+
 function compute() {
-  const prepared = C.prepare(current());
+  const person = current();
+  const effectiveDate = calculationDate(person);
+  const prepared = C.prepare({...person, asof: effectiveDate});
   $('errors').textContent = prepared.errors.join(' ');
   checklist();
   if (prepared.errors.length) {
@@ -261,10 +308,18 @@ function compute() {
     $('window').textContent = '';
     $('bar').style.width = '0%';
     $('forecast').textContent = '';
+    const explanation = $('calculation-explanation');
+    explanation.replaceChildren();
+    const placeholder = document.createElement('p');
+    placeholder.textContent = 'Enter valid details to see how your days are counted.';
+    explanation.append(placeholder);
     return;
   }
   const result = C.evaluate(prepared);
-  $('window').textContent = `Five-year window: ${C.formatDate(result.start)} to ${C.formatDate(result.end)} (the application date is not counted).`;
+  const futurePr = C.parseDate(effectiveDate) > C.parseDate(today());
+  $('window').textContent = futurePr
+    ? `Projection from your entered PR date. Five-year window: ${C.formatDate(result.start)} to ${C.formatDate(result.end)}.`
+    : `As of today, the five-year window is ${C.formatDate(result.start)} to ${C.formatDate(result.end)} (today is not counted).`;
   $('total').textContent = number(result.total);
   $('remaining').textContent = number(result.remaining);
   $('credited').textContent = number(result.prDays);
@@ -274,6 +329,7 @@ function compute() {
   const percentage = Math.min(100, result.total / C.TARGET * 100);
   $('percent').textContent = percentage.toFixed(1) + '%';
   $('bar').style.width = percentage + '%';
+  renderExplanation(prepared, result, futurePr);
   if (result.presenceMet) {
     $('forecast').textContent = 'Your entered dates reach the standard 1,095-day physical presence target. Other citizenship requirements and exceptions still apply.';
   } else {
@@ -289,7 +345,6 @@ function render() {
   profileOptions();
   $('profile-name').value = person.name;
   $('pr').value = person.pr;
-  $('asof').value = person.asof;
   for (const [field, id] of Object.entries(fieldIds)) $(id).value = person.checklist[field] || '';
   renderRows('statuses', 'statuses', 'Status period', [['from', 'First day in Canada with this status'], ['to', 'Last day of this valid status']]);
   renderRows('trips', 'trips', 'Trip', [['from', 'Left Canada'], ['to', 'Returned (or expected return)']]);
@@ -317,7 +372,7 @@ $('remove-profile').onclick = () => {
   state.activeId = state.profiles[0].id;
   showDashboard();
 };
-for (const id of ['pr', 'asof']) $(id).onchange = event => { current()[id] = event.target.value; save(); compute(); };
+$('pr').onchange = event => { current().pr = event.target.value; save(); compute(); };
 for (const [field, id] of Object.entries(fieldIds)) $(id).onchange = event => { current().checklist[field] = event.target.value; save(); checklist(); };
 $('add-status').onclick = () => { current().statuses.push({type: '', from: '', to: ''}); save(); render(); };
 $('add-trip').onclick = () => { current().trips.push({from: '', to: ''}); save(); render(); };
@@ -356,7 +411,9 @@ render();
 showDashboard(false);
 
 document.addEventListener?.('visibilitychange', () => {
-  if (!document.hidden && !$('dashboard-view').hidden) renderDashboard();
+  if (document.hidden) return;
+  if (!$('dashboard-view').hidden) renderDashboard();
+  else compute();
 });
 
 if ('serviceWorker' in navigator) {

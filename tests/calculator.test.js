@@ -32,6 +32,19 @@ test('four years as a student then worker still have a combined 365-day cap', ()
   assert.equal(r.presenceMet, true);
 });
 
+test('explains older status dates and the pre-PR credit cap', () => {
+  const p = C.prepare({pr: '2022-01-01', asof: '2024-01-01',
+    statuses: [{type: 'student', from: '2018-01-01', to: '2019-12-31'},
+      {type: 'worker', from: '2020-01-01', to: '2021-12-31'}], trips: [], exclusions: []});
+  const r = C.evaluate(p);
+  const detail = C.explain(p, r);
+  assert.equal(detail.tempStatusDays, 1096);
+  assert.equal(detail.tempDaysBeforeWindow, 365);
+  assert.equal(detail.tempCreditBeforeCap, 548);
+  assert.equal(r.tempCredit, 365);
+  assert.equal(detail.prCalendarDays, 730);
+});
+
 test('application day is excluded and the five-year boundary is included', () => {
   let r = check({pr: '2025-01-01', asof: '2025-01-01'});
   assert.equal(r.prDays, 0);
@@ -68,6 +81,23 @@ test('a trip spanning the PR date and an overlapping exclusion do not deduct day
   assert.equal(r.total, 1090);
 });
 
+test('explains trips and exclusions without subtracting overlapping days twice', () => {
+  const p = C.prepare({pr: '2022-01-01', asof: '2024-01-01',
+    statuses: [{type: 'student', from: '2020-01-01', to: '2021-06-30'},
+      {type: 'worker', from: '2021-06-01', to: '2021-12-31'}],
+    trips: [{from: '2021-12-30', to: '2022-01-04'}],
+    exclusions: [{from: '2022-01-01', to: '2022-01-05'}]});
+  const r = C.evaluate(p);
+  const detail = C.explain(p, r);
+  assert.equal(detail.tempStatusDays, 731);
+  assert.equal(detail.tempAwayDays, 1);
+  assert.equal(detail.tempExcludedDays, 0);
+  assert.equal(detail.prCalendarDays, 730);
+  assert.equal(detail.prAwayDays, 3);
+  assert.equal(detail.prExcludedDays, 2);
+  assert.equal(detail.otherAwayDays, 0);
+});
+
 test('temporary status after PR is never counted at half a day', () => {
   const r = check({pr: '2020-01-05', asof: '2020-01-10',
     statuses: [{type: 'worker', from: '2020-01-01', to: '2020-01-20'}]});
@@ -75,6 +105,16 @@ test('temporary status after PR is never counted at half a day', () => {
   assert.equal(r.tempCredit, 2);
   assert.equal(r.prDays, 5);
   assert.equal(r.total, 7);
+});
+
+test('explains status dates after PR and travel outside entered status periods', () => {
+  const p = C.prepare({pr: '2020-01-05', asof: '2020-01-10',
+    statuses: [{type: 'worker', from: '2020-01-01', to: '2020-01-20'}],
+    trips: [{from: '2019-12-01', to: '2019-12-03'}], exclusions: []});
+  const r = C.evaluate(p);
+  const detail = C.explain(p, r);
+  assert.equal(detail.statusDaysAfterPr, 5);
+  assert.equal(detail.otherAwayDays, 1);
 });
 
 test('same-day and next-day trips have no full days abroad; a longer trip deducts the middle days', () => {

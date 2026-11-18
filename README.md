@@ -7,12 +7,13 @@ The site is published using GitHub Pages: <https://neel4172.github.io/Citizenshi
 ## What it does
 
 - Keeps separate named profiles on the current device. Existing single-person saved data is migrated to a profile without deleting the original.
-- Opens to a family dashboard showing each person's credited days remaining and tentative date. Choose **Edit details** to update their information; choose **Save & show dashboard** to return.
-- The dashboard calculates from the current date each time it opens. If the entered PR date is in the future, it explicitly labels the result as a projection from that date. The detailed calculation can use a different planned application date.
-- Calculates the five-year eligibility window before the chosen application date, excluding the application date itself.
+- Opens to a family dashboard showing each person's credited days remaining and tentative date. Choose **View & edit details** to review the breakdown or update their information; choose **Save & show dashboard** to return.
+- The dashboard and detailed calculation use the current date automatically. If the entered PR date is in the future, the result is clearly labeled as a projection from that date.
+- Calculates the five-year eligibility window before the current or projected calculation date, excluding that date itself.
 - Counts qualifying days in Canada as a PR at one day each, and qualifying pre-PR temporary-resident or protected-person days at half a day each, capped at 365 credited days.
 - Combines multiple status periods without counting overlapping days twice, and only counts pre-PR status days before the PR effective date.
 - Subtracts full days outside Canada while normally counting departure and return days. An optional exclusion section lets the user enter periods that IRCC says should not count.
+- Explains each total, including PR days, eligible temporary-status days, travel, excluded periods, the credit cap, and entered dates before the five-year window.
 - Shows an estimated date for reaching the physical-presence target, recalculating the rolling window and assuming no future travel except trips already entered.
 - Provides a self-reported checklist of the standard adult PR, filing, language, prohibitions, test and oath requirements. It does not decide eligibility or determine whether a waiver applies.
 - Exports or imports JSON backups of profiles. Imported profiles are added; existing profiles are not replaced. Data is local to each browser/device and is not automatically synced.

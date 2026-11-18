@@ -63,6 +63,18 @@ const CitizenshipCalculator = (() => {
     return count;
   }
 
+  function countOverlap(ranges, other) {
+    let count = 0;
+    for (const period of ranges) {
+      for (const item of other) {
+        const from = Math.max(period.from, item.from);
+        const to = Math.min(period.to, item.to);
+        if (from <= to) count += to - from + 1;
+      }
+    }
+    return count;
+  }
+
   function prepare(profile) {
     const errors = [];
     const pr = parseDate(profile.pr);
@@ -135,6 +147,30 @@ const CitizenshipCalculator = (() => {
     };
   }
 
+  // Explain the existing calculation without changing the counting rules.
+  // All ranges have been merged, so a day cannot be subtracted twice.
+  function explain(prepared, result) {
+    const prRanges = clipRanges([{from: prepared.pr, to: result.end}], result.start, result.end);
+    const tempRanges = clipRanges(prepared.statuses, result.start, Math.min(result.end, prepared.pr - 1));
+    const prCalendarDays = countRanges(prRanges);
+    const tempStatusDays = countRanges(tempRanges);
+    const prAwayDays = countOverlap(prRanges, prepared.away);
+    const tempAwayDays = countOverlap(tempRanges, prepared.away);
+    return {
+      prCalendarDays,
+      tempStatusDays,
+      prAwayDays,
+      tempAwayDays,
+      prExcludedDays: prCalendarDays - result.prDays - prAwayDays,
+      tempExcludedDays: tempStatusDays - result.tempDays - tempAwayDays,
+      otherAwayDays: result.absentDays - prAwayDays - tempAwayDays,
+      tempDaysBeforeWindow: countRanges(clipRanges(prepared.statuses, -Infinity, Math.min(result.start - 1, prepared.pr - 1))),
+      prDaysBeforeWindow: Math.max(0, result.start - prepared.pr),
+      statusDaysAfterPr: countRanges(clipRanges(prepared.statuses, prepared.pr, result.end)),
+      tempCreditBeforeCap: result.tempDays / 2
+    };
+  }
+
   function forecast(prepared, maxFutureDays = 3660) {
     const current = evaluate(prepared);
     if (current.presenceMet) return prepared.application;
@@ -144,7 +180,7 @@ const CitizenshipCalculator = (() => {
     return null;
   }
 
-  return {TARGET, PR_MINIMUM, TEMP_CREDIT_MAX, parseDate, formatDate, yearsEarlier, prepare, evaluate, forecast};
+  return {TARGET, PR_MINIMUM, TEMP_CREDIT_MAX, parseDate, formatDate, yearsEarlier, prepare, evaluate, explain, forecast};
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = CitizenshipCalculator;
