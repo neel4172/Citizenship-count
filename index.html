@@ -1,9 +1,134 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#a51c30"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Citizenship Days"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon.svg"><title>Canada Citizenship Days</title><style>
-:root{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#19212b;background:#f5f6f8}*{box-sizing:border-box}body{margin:0}main{max-width:680px;margin:auto;padding:22px 16px 65px}header{background:#a51c30;color:white;padding:27px 20px;border-radius:18px;margin-bottom:16px}h1{font-size:25px;margin:0 0 6px}h2{font-size:19px;margin:0 0 12px}p{line-height:1.5}.sub{margin:0;opacity:.93}.card{background:white;border-radius:16px;padding:19px;margin:14px 0;box-shadow:0 2px 10px #1824350b}label{display:block;font-size:14px;font-weight:650;margin:12px 0 6px}input{font:inherit;width:100%;padding:12px;border:1px solid #cbd0d6;border-radius:9px;background:white;min-height:46px}button{font:inherit;font-weight:650;border:0;background:#a51c30;color:white;border-radius:10px;padding:12px 16px;min-height:44px;cursor:pointer}button.secondary{background:#eaecef;color:#1f2937}button.remove{background:#fff0f1;color:#8d1425;padding:8px 12px}.trip{border:1px solid #e1e4e8;border-radius:12px;padding:12px;margin:10px 0}.triphead{display:flex;justify-content:space-between;align-items:center}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{background:#f5f6f8;padding:14px;border-radius:12px}.number{font-size:29px;font-weight:750;margin-top:6px}.muted,small{color:#606a76;font-size:13px}.progress{height:13px;background:#e5e7eb;border-radius:20px;overflow:hidden}.bar{height:100%;background:#20815d;width:0;transition:width .2s}.error{color:#9f1239}.warning{background:#fff8e6;padding:12px;border-radius:10px;font-size:13px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1}.footer{font-size:12px;color:#57606b}a{color:#a51c30}@media(max-width:380px){.two{grid-template-columns:1fr}.number{font-size:24px}}
-</style></head><body><main><header><h1>🍁 Citizenship Day Tracker</h1><p class="sub">Track your physical presence in Canada</p></header>
-<section class="card"><h2>Your dates</h2><label for="pr">Date you officially became a permanent resident</label><input type="date" id="pr"><label for="asof">Calculate as of</label><input type="date" id="asof"><p class="muted">Use your actual PR effective date, not necessarily the date your COPR document was issued.</p></section>
-<section class="card"><h2>Trips outside Canada</h2><p class="muted">Enter every trip relevant to the last five years. Departure and return days are normally counted as days in Canada.</p><div id="trips"></div><button id="add" type="button">+ Add a trip</button></section>
-<section class="card"><h2>Your results</h2><div id="errors" class="error" role="alert"></div><div class="stats"><div class="stat"><div class="muted">Credited PR days</div><div id="credited" class="number">—</div></div><div class="stat"><div class="muted">Days remaining</div><div id="remaining" class="number">—</div></div><div class="stat"><div class="muted">Full days absent</div><div id="absent" class="number">—</div></div><div class="stat"><div class="muted">Progress to 1,095</div><div id="percent" class="number">—</div></div></div><p><div class="progress"><div id="bar" class="bar"></div></div></p><p id="forecast"></p><p class="warning"><strong>Important:</strong> This first version counts PR days only, within a rolling five-year period. It does not count eligible pre-PR temporary-resident/protected-person time, address every special absence, or determine complete citizenship eligibility. The forecast assumes you stay in Canada and have entered all past trips. Verify results with the official IRCC calculator before applying.</p></section>
-<section class="card"><h2>Your information</h2><p class="muted">Dates are saved locally in this browser, not sent to a server. Clearing Safari website data can erase them.</p><div class="actions"><button class="secondary" id="export">Export backup</button><button class="remove" id="clear">Clear all</button></div></section>
-<p class="footer">Independent planning tool; not affiliated with IRCC. Official guidance: <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/adult-minor/how/physical-presence.html" target="_blank" rel="noopener">Canada.ca physical presence</a>.</p></main>
-<script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#a51c30">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Citizenship Days">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Canada Citizenship Day Tracker</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#19212b;background:#f5f6f8;line-height:1.5}
+    *{box-sizing:border-box}body{margin:0}main{max-width:760px;margin:auto;padding:22px 16px 65px}
+    header{background:#a51c30;color:#fff;padding:27px 20px;border-radius:18px;margin-bottom:16px}
+    h1{font-size:25px;line-height:1.2;margin:0 0 8px}h2{font-size:20px;line-height:1.3;margin:0 0 10px}h3{font-size:16px;margin:18px 0 6px}
+    p{margin:8px 0 12px}.sub{margin:0;color:#fff;opacity:.95}.card{background:#fff;border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 2px 10px #1824350b}
+    label{display:block;font-size:14px;font-weight:650;margin:12px 0 6px}input,select{font:inherit;width:100%;padding:11px 12px;border:1px solid #aeb8c2;border-radius:9px;background:#fff;color:#19212b;min-height:46px}
+    input:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid #488acb;outline-offset:2px}
+    button,.button{font:inherit;font-weight:650;border:0;background:#a51c30;color:#fff;border-radius:10px;padding:11px 15px;min-height:44px;cursor:pointer;text-align:center}
+    button.secondary,.button.secondary{background:#eaecef;color:#1f2937}button.remove{background:#fff0f1;color:#8d1425;padding:8px 12px}button:disabled{opacity:.5;cursor:not-allowed}
+    .entry{border:1px solid #d9dee4;border-radius:12px;padding:14px;margin:12px 0}.entry-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .two,.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{margin:12px 0}.stat{background:#f5f6f8;padding:14px;border-radius:12px;min-width:0}
+    .number{font-size:27px;font-weight:750;line-height:1.1;margin-top:8px}.muted,small{color:#53616e;font-size:14px}.note{font-size:14px;line-height:1.5}
+    .progress{height:13px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin:14px 0}.bar{height:100%;background:#20815d;width:0;transition:width .2s}
+    .error{color:#9f1239;font-weight:600}.warning{background:#fff8e6;border-left:4px solid #e6aa2e;padding:12px;border-radius:8px;font-size:14px;line-height:1.5}
+    .tip{background:#edf7f1;border-left:4px solid #20815d;padding:12px;border-radius:8px;font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions>*{flex:1}
+    .footer{font-size:13px;color:#53616e}a{color:#9b1c31}ul{padding-left:22px}li{margin:6px 0}.field-note{font-size:13px;color:#53616e;margin:4px 0}
+    [hidden]{display:none!important}@media(max-width:430px){.two{grid-template-columns:1fr}.number{font-size:24px}.card{padding:17px}.actions>*{flex-basis:45%}}
+  </style>
+</head>
+<body>
+<main>
+  <header><h1>🍁 Citizenship Day Tracker</h1><p class="sub">Plan your Canadian citizenship application and track your family’s progress.</p></header>
+
+  <section class="card" aria-labelledby="people-title">
+    <h2 id="people-title">Choose a person</h2>
+    <p class="muted">Each person has separate dates and results. Profiles are saved only in this browser on this device.</p>
+    <label for="profile-select">Person</label><select id="profile-select"></select>
+    <label for="profile-name">Name</label><input id="profile-name" maxlength="80" autocomplete="off" placeholder="Enter a name">
+    <div class="actions"><button id="add-profile" type="button">+ Add a person</button><button id="remove-profile" class="remove" type="button">Remove this person</button></div>
+  </section>
+
+  <section class="card" aria-labelledby="dates-title">
+    <h2 id="dates-title">1. Your dates</h2>
+    <label for="pr">Date you became a permanent resident</label><input type="date" id="pr" min="1900-01-01" max="2100-12-31">
+    <p class="field-note">Use your actual PR effective date, not necessarily the date your COPR document was issued.</p>
+    <label for="asof">Planned citizenship application date</label><input type="date" id="asof" min="1900-01-01" max="2100-12-31">
+    <p class="field-note">The five-year calculation ends the day before this date. A future date is for planning only.</p>
+  </section>
+
+  <section class="card" aria-labelledby="status-title">
+    <h2 id="status-title">2. Time in Canada before PR</h2>
+    <p>Add each period when you were in Canada with eligible temporary resident or protected-person status—for example, a student period followed by a worker period.</p>
+    <p class="tip">IRCC counts each eligible day as half a day, up to a combined maximum of 365 credited days. Only the five years before your application count.</p>
+    <p class="muted">Enter your first day in Canada with that status (or its effective date, if later) and the last day of valid status. Include extensions or maintained status only when you know the time was authorized. Add all trips below. Overlapping status periods are counted only once.</p>
+    <div id="statuses"></div><button id="add-status" type="button">+ Add a status period</button>
+    <details class="note"><summary>Which periods should I leave out?</summary><p>Do not include time without eligible status, or time before you became a protected person. A work or study permit issued while a refugee claim or pre-removal risk assessment was being assessed does not by itself provide temporary resident status for this purpose. Check uncertain periods with IRCC.</p></details>
+  </section>
+
+  <section class="card" aria-labelledby="trips-title">
+    <h2 id="trips-title">3. Trips outside Canada</h2>
+    <p class="muted">Add trips during your temporary-resident and PR periods, including day trips. Days you left and returned generally count as days in Canada; only full days outside are deducted.</p>
+    <div id="trips"></div><button id="add-trip" type="button">+ Add a trip</button>
+  </section>
+
+  <section class="card" aria-labelledby="excluded-title">
+    <h2 id="excluded-title">4. Time that does not count</h2>
+    <p class="muted">If IRCC says a period does not count (for example, some time serving a sentence, on probation or on parole), add it here. Exceptions may apply; check the <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/become-canadian-citizen/eligibility/situtations-prevent-citizenship.html" target="_blank" rel="noopener">IRCC rules</a> before excluding time.</p>
+    <div id="exclusions"></div><button id="add-exclusion" class="secondary" type="button">+ Add an excluded period</button>
+  </section>
+
+  <section class="card" aria-labelledby="results-title">
+    <h2 id="results-title">Your physical presence estimate</h2>
+    <div id="errors" class="error" role="alert"></div><p id="window" class="muted" aria-live="polite"></p>
+    <div class="stats">
+      <div class="stat"><div class="muted">Total credited days</div><div id="total" class="number">—</div></div>
+      <div class="stat"><div class="muted">Days remaining to 1,095</div><div id="remaining" class="number">—</div></div>
+      <div class="stat"><div class="muted">Days as a PR</div><div id="credited" class="number">—</div></div>
+      <div class="stat"><div class="muted">Credit before PR (max 365)</div><div id="temp-credit" class="number">—</div></div>
+      <div class="stat"><div class="muted">Eligible days before PR</div><div id="temp-days" class="number">—</div></div>
+      <div class="stat"><div class="muted">Full days outside Canada</div><div id="absent" class="number">—</div></div>
+    </div>
+    <p class="muted">Progress: <span id="percent">—</span> of 1,095 credited days</p><div class="progress" aria-hidden="true"><div id="bar" class="bar"></div></div>
+    <p id="forecast" aria-live="polite"></p>
+    <p class="warning">This is an independent estimate, not an IRCC decision. It does not automatically assess every exception, including some Crown-servant time outside Canada or special sentence rules. IRCC recommends applying with a buffer above 1,095 days. Verify the result with the <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/adult-minor/how/physical-presence.html" target="_blank" rel="noopener">official IRCC physical presence calculator</a>.</p>
+  </section>
+
+  <section class="card" aria-labelledby="checklist-title">
+    <h2 id="checklist-title">Other adult citizenship requirements</h2>
+    <p class="muted">These questions help you review IRCC’s standard adult requirements. Your answers are not verified and cannot determine citizenship eligibility.</p>
+    <label for="age-group">Your age on the planned application date</label>
+    <select id="age-group"><option value="">Choose an age group</option><option value="under18">Under 18</option><option value="18-54">18–54</option><option value="55plus">55 or older</option></select>
+    <p id="age-guidance" class="field-note">Minors have different pathways; this checklist is for adults.</p>
+
+    <label for="pr-status">Do you have valid permanent resident status?</label>
+    <select id="pr-status"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="unsure">Not sure</option></select>
+    <p class="field-note">An expired PR card does not by itself mean that PR status has expired.</p>
+
+    <label for="pr-conditions">Are you free of a removal order and unfulfilled PR conditions?</label>
+    <select id="pr-conditions"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="unsure">Not sure</option></select>
+
+    <label for="taxes">Have you met your Canadian tax filing obligations for at least 3 years in the five-year period, if required?</label>
+    <select id="taxes"><option value="">Choose an answer</option><option value="yes">Yes / requirements met</option><option value="no">No</option><option value="unsure">Not sure / need to check</option></select>
+
+    <div id="language-section">
+      <label for="language">If you are 18–54, do you have accepted proof of English or French speaking and listening skills at CLB/NCLC 4 or higher?</label>
+      <select id="language"><option value="">Choose an answer</option><option value="yes">Yes</option><option value="no">No</option><option value="waiver">I need to request a waiver</option><option value="unsure">Not sure</option></select>
+      <p class="field-note">IRCC can consider accommodations or a waiver. The citizenship test is generally taken after applying.</p>
+    </div>
+
+    <label for="prohibition">Could an IRCC prohibition apply to you?</label>
+    <select id="prohibition"><option value="">Choose an answer</option><option value="no">No</option><option value="yes">Yes</option><option value="unsure">Not sure</option></select>
+    <p class="field-note">Some criminal, security, removal-order, or past misrepresentation situations can prevent citizenship. <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/become-canadian-citizen/eligibility/situtations-prevent-citizenship.html" target="_blank" rel="noopener">See IRCC’s list</a>.</p>
+
+    <label for="review">Is your PR status being reviewed for immigration or fraud reasons?</label>
+    <select id="review"><option value="">Choose an answer</option><option value="no">No</option><option value="yes">Yes</option><option value="unsure">Not sure</option></select>
+    <p class="field-note">IRCC says you may apply while under review, but processing may be suspended.</p>
+    <p id="checklist-summary" class="warning" aria-live="polite"></p>
+    <p class="note">Adults generally take the citizenship oath after approval. You may also need a police certificate if you were in another country for 183 or more consecutive days in the last four years since age 18; exceptions apply. See the <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/application/application-forms-guides/cit0002.html" target="_blank" rel="noopener">IRCC application guide</a>.</p>
+    <p class="note">For the full rules, waivers, minor pathways and individual circumstances, see <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/adult-minor/who.html" target="_blank" rel="noopener">IRCC’s citizenship eligibility page</a>.</p>
+  </section>
+
+  <section class="card" aria-labelledby="data-title">
+    <h2 id="data-title">Your information</h2>
+    <p class="muted">Profiles are stored on this device, not sent to a server or synced between devices. Clearing browser data can erase them. Export a backup to keep a copy.</p>
+    <div class="actions"><button class="secondary" id="export" type="button">Export all profiles</button><button class="secondary" id="import-button" type="button">Import backup</button></div>
+    <input id="import-file" type="file" accept="application/json,.json" hidden>
+    <p id="storage-message" class="muted" role="status"></p>
+  </section>
+  <p class="footer">Independent planning tool; not affiliated with IRCC. Check all dates and requirements with IRCC before applying.</p>
+</main>
+<script src="calculator.js"></script><script src="profiles.js"></script><script src="app.js"></script>
+</body></html>
