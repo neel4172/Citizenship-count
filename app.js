@@ -235,12 +235,12 @@ function renderDashboard() {
   }
 }
 
-function showDashboard() {
+function showDashboard(shouldFocus = true) {
   save();
   renderDashboard();
   $('detail-view').hidden = true;
   $('dashboard-view').hidden = false;
-  $('dashboard-title').focus();
+  if (shouldFocus) $('dashboard-title').focus();
 }
 
 function showDetails(personId) {
@@ -353,7 +353,7 @@ $('import-file').onchange = async event => {
 if (stored.blocked) storageMessage(stored.error);
 else save(); // Also migrates the original single-person data without deleting it.
 render();
-showDashboard();
+showDashboard(false);
 
 document.addEventListener?.('visibilitychange', () => {
   if (!document.hidden && !$('dashboard-view').hidden) renderDashboard();

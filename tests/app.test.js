@@ -20,7 +20,7 @@ function runApp(initial, clock = '2024-01-01T12:00:00Z') {
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = children; }
     setAttribute(key, value) { this[key] = value; }
-    focus() {}
+    focus() { this.focused = true; }
     select() {}
     click() { if (this.onclick) return this.onclick({target: this}); }
   }
@@ -49,6 +49,7 @@ test('migrates a person, calculates student and worker time, and keeps family pr
   const originalId = JSON.parse(app.items.get(Profiles.KEY)).activeId;
   assert.equal(app.get('dashboard-view').hidden, false);
   assert.equal(app.get('detail-view').hidden, true);
+  assert.notEqual(app.get('dashboard-title').focused, true);
   app.get('edit-person-' + originalId).click();
   assert.equal(app.get('dashboard-view').hidden, true);
   assert.equal(app.get('detail-view').hidden, false);
