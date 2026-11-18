@@ -1,4 +1,4 @@
-const CACHE = 'citizenship-tracker-v2';
+const CACHE = 'citizenship-tracker-v3';
 const FILES = ['./', './index.html', './calculator.js', './profiles.js', './app.js', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', event => {

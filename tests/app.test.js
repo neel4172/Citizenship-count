@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const Calculator = require('../calculator.js');
 const Profiles = require('../profiles.js');
 
-function runApp(initial) {
+function runApp(initial, clock = '2024-01-01T12:00:00Z') {
   const items = new Map(Object.entries(initial || {}));
   const localStorage = {getItem: key => items.has(key) ? items.get(key) : null,
     setItem: (key, value) => items.set(key, String(value))};
@@ -27,9 +27,13 @@ function runApp(initial) {
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   for (const match of html.matchAll(/\bid="([^"]+)"/g)) { const e = new Element('element'); e.id = match[1]; }
   const document = {getElementById: id => ids.get(id), createElement: tag => new Element(tag)};
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [clock])); }
+    static now() { return Date.parse(clock); }
+  }
   const context = vm.createContext({CitizenshipCalculator: Calculator, CitizenshipProfiles: Profiles, document,
     localStorage, navigator: {}, window: {addEventListener() {}}, confirm: () => true,
-    console, Date, Blob, URL, setTimeout});
+    console, Date: FixedDate, Blob, URL, setTimeout});
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8'), context);
   return {ids, items, get: id => ids.get(id)};
 }
@@ -43,6 +47,11 @@ test('migrates a person, calculates student and worker time, and keeps family pr
   const legacy = {pr: '2022-01-01', asof: '2024-01-01', trips: []};
   const app = runApp({[Profiles.LEGACY_KEY]: JSON.stringify(legacy)});
   const originalId = JSON.parse(app.items.get(Profiles.KEY)).activeId;
+  assert.equal(app.get('dashboard-view').hidden, false);
+  assert.equal(app.get('detail-view').hidden, true);
+  app.get('edit-person-' + originalId).click();
+  assert.equal(app.get('dashboard-view').hidden, true);
+  assert.equal(app.get('detail-view').hidden, false);
   assert.equal(app.get('credited').textContent, '730');
   assert.equal(app.get('profile-name').value, 'Myself');
   assert.equal(app.items.get(Profiles.LEGACY_KEY), JSON.stringify(legacy));
@@ -81,4 +90,46 @@ test('migrates a person, calculates student and worker time, and keeps family pr
   assert.equal(app.get('profile-name').value, 'Myself');
   assert.equal(app.get('total').textContent, '1,093');
   assert.equal(app.get('temp-credit').textContent, '365');
+  app.get('show-dashboard-bottom').click();
+  assert.equal(app.get('dashboard-view').hidden, false);
+  assert.equal(app.get('detail-view').hidden, true);
+  const cards = app.get('dashboard-cards').children;
+  assert.equal(cards.length, 2);
+  assert.equal(cards[0].children[0].children[0].textContent, 'Myself');
+  assert.equal(cards[0].children[1].children[0].children[1].textContent, '2');
+  assert.equal(cards[1].children[0].children[0].textContent, 'Family member');
+  assert.equal(cards[1].children[1].children[0].children[1].textContent, '730');
+});
+
+test('dashboard uses today rather than a stale planned date and shows the tentative date', () => {
+  const person = Profiles.createProfile('Neel', '2023-01-01');
+  person.pr = '2022-01-01';
+  const data = {version: 2, activeId: person.id, profiles: [person]};
+  const app = runApp({[Profiles.KEY]: JSON.stringify(data)}, '2024-01-01T12:00:00Z');
+  const card = app.get('dashboard-cards').children[0];
+  assert.equal(card.children[0].children[0].textContent, 'Neel');
+  assert.equal(card.children[1].children[0].children[1].textContent, '365');
+  assert.equal(card.children[1].children[1].children[1].textContent,
+    new Date('2024-12-31T00:00:00Z').toLocaleDateString('en-CA', {year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'}));
+  assert.match(card.children[2].textContent, /counting through the day before/);
+  assert.equal(app.get('asof').value, '2023-01-01'); // The planning date is preserved in the editor.
+});
+
+test('dashboard labels a future PR date as a projection', () => {
+  const person = Profiles.createProfile('Future PR', '2024-01-01');
+  person.pr = '2024-07-01';
+  const app = runApp({[Profiles.KEY]: JSON.stringify({version: 2, activeId: person.id, profiles: [person]})}, '2024-01-01T12:00:00Z');
+  const card = app.get('dashboard-cards').children[0];
+  assert.equal(card.children[1].children[0].children[1].textContent, '1,095');
+  assert.match(card.children[2].textContent, /Projection from your entered PR date/);
+});
+
+test('dashboard avoids applying the adult goal to a minor', () => {
+  const person = Profiles.createProfile('Child', '2024-01-01');
+  person.pr = '2022-01-01';
+  person.checklist.ageGroup = 'under18';
+  const app = runApp({[Profiles.KEY]: JSON.stringify({version: 2, activeId: person.id, profiles: [person]})}, '2024-01-01T12:00:00Z');
+  const card = app.get('dashboard-cards').children[0];
+  assert.equal(card.children[1].children[0].children[1].textContent, '—');
+  assert.match(card.children[2].textContent, /Minors have different citizenship pathways/);
 });

@@ -26,15 +26,29 @@
     .error{color:#9f1239;font-weight:600}.warning{background:#fff8e6;border-left:4px solid #e6aa2e;padding:12px;border-radius:8px;font-size:14px;line-height:1.5}
     .tip{background:#edf7f1;border-left:4px solid #20815d;padding:12px;border-radius:8px;font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions>*{flex:1}
     .footer{font-size:13px;color:#53616e}a{color:#9b1c31}ul{padding-left:22px}li{margin:6px 0}.field-note{font-size:13px;color:#53616e;margin:4px 0}
-    [hidden]{display:none!important}@media(max-width:430px){.two{grid-template-columns:1fr}.number{font-size:24px}.card{padding:17px}.actions>*{flex-basis:45%}}
+    .dashboard-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:24px 2px 16px}.dashboard-heading h2{margin-bottom:4px;font-size:24px}.dashboard-heading p{margin:0}
+    .dashboard-list{display:grid;gap:14px}.person-card{background:#fff;border:1px solid #e7e8eb;border-radius:18px;padding:21px;box-shadow:0 4px 18px #1824350b}
+    .person-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.person-name{font-size:20px;font-weight:750;overflow-wrap:anywhere}.badge{white-space:nowrap;font-size:12px;font-weight:700;color:#7d2435;background:#fff1f3;border-radius:999px;padding:5px 10px}.badge.reached{color:#176a4c;background:#eaf7ef}
+    .person-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 12px}.person-stat{background:#f7f7f8;border-radius:12px;padding:14px;min-width:0}.person-stat-label{color:#53616e;font-size:13px}.person-stat-value{font-size:27px;line-height:1.2;font-weight:750;margin-top:6px;overflow-wrap:anywhere}.person-stat-value.date{font-size:19px}
+    .person-context{font-size:13px;color:#53616e;margin:10px 0 14px}.person-card button{width:100%}.dashboard-foot{margin-top:20px}.editor-actions{display:flex;gap:10px;justify-content:space-between;align-items:center;margin:14px 0}.editor-actions p{margin:0}.editor-actions button{white-space:nowrap}
+    [hidden]{display:none!important}@media(max-width:430px){.two{grid-template-columns:1fr}.number{font-size:24px}.card{padding:17px}.actions>*{flex-basis:45%}.dashboard-heading{align-items:stretch;flex-direction:column}.dashboard-heading button{align-self:flex-start}.person-stat-value{font-size:24px}.person-stat-value.date{font-size:17px}.editor-actions{align-items:stretch;flex-direction:column}.editor-actions button{width:100%}}
   </style>
 </head>
 <body>
 <main>
   <header><h1>🍁 Citizenship Day Tracker</h1><p class="sub">Plan your Canadian citizenship application and track your family’s progress.</p></header>
 
+  <div id="dashboard-view">
+    <div class="dashboard-heading"><div><h2 id="dashboard-title" tabindex="-1">Your dashboard</h2><p class="muted">See everyone’s progress at a glance.</p></div><button id="dashboard-add-profile" type="button">+ Add a person</button></div>
+    <div id="dashboard-cards" class="dashboard-list" aria-live="polite"></div>
+    <p id="dashboard-storage-message" class="error" role="status"></p>
+    <p class="footer dashboard-foot">Estimates use the standard adult physical presence rules and the information entered. Dates are saved in this browser on this device. Confirm all requirements with <a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/canadian-citizenship/adult-minor/how/physical-presence.html" target="_blank" rel="noopener">IRCC’s official calculator</a>.</p>
+  </div>
+
+  <div id="detail-view" hidden>
+  <div class="editor-actions"><p class="muted">Your changes are saved as you enter them.</p><button id="show-dashboard-top" class="secondary" type="button">Save &amp; show dashboard</button></div>
   <section class="card" aria-labelledby="people-title">
-    <h2 id="people-title">Choose a person</h2>
+    <h2 id="people-title" tabindex="-1">Choose a person</h2>
     <p class="muted">Each person has separate dates and results. Profiles are saved only in this browser on this device.</p>
     <label for="profile-select">Person</label><select id="profile-select"></select>
     <label for="profile-name">Name</label><input id="profile-name" maxlength="80" autocomplete="off" placeholder="Enter a name">
@@ -46,7 +60,7 @@
     <label for="pr">Date you became a permanent resident</label><input type="date" id="pr" min="1900-01-01" max="2100-12-31">
     <p class="field-note">Use your actual PR effective date, not necessarily the date your COPR document was issued.</p>
     <label for="asof">Planned citizenship application date</label><input type="date" id="asof" min="1900-01-01" max="2100-12-31">
-    <p class="field-note">The five-year calculation ends the day before this date. A future date is for planning only.</p>
+    <p class="field-note">The detailed calculation ends the day before this date. The dashboard normally shows your progress as of today. A future date is for planning only.</p>
   </section>
 
   <section class="card" aria-labelledby="status-title">
@@ -128,6 +142,8 @@
     <input id="import-file" type="file" accept="application/json,.json" hidden>
     <p id="storage-message" class="muted" role="status"></p>
   </section>
+  <div class="editor-actions"><p class="muted">Finished entering details?</p><button id="show-dashboard-bottom" type="button">Save &amp; show dashboard</button></div>
+  </div>
   <p class="footer">Independent planning tool; not affiliated with IRCC. Check all dates and requirements with IRCC before applying.</p>
 </main>
 <script src="calculator.js"></script><script src="profiles.js"></script><script src="app.js"></script>

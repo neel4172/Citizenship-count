@@ -15,16 +15,21 @@ const fieldIds = {
   taxes: 'taxes', language: 'language', prohibition: 'prohibition', review: 'review'
 };
 
+function storageMessage(message) {
+  $('storage-message').textContent = message;
+  $('dashboard-storage-message').textContent = message;
+}
+
 function save() {
   if (stored.blocked) {
-    $('storage-message').textContent = stored.error;
+    storageMessage(stored.error);
     return false;
   }
   try {
     localStorage.setItem(P.KEY, JSON.stringify(state));
     return true;
   } catch {
-    $('storage-message').textContent = 'Changes could not be saved in this browser. Try enabling website storage or export a backup.';
+    storageMessage('Changes could not be saved in this browser. Try enabling website storage or export a backup.');
     return false;
   }
 }
@@ -145,6 +150,108 @@ function number(value) {
   return value.toLocaleString('en-CA', {maximumFractionDigits: 1});
 }
 
+function readableDate(day) {
+  return new Date(day * 86400000).toLocaleDateString('en-CA', {
+    year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
+  });
+}
+
+function makeMetric(label, value, date = false) {
+  const wrap = document.createElement('div');
+  wrap.className = 'person-stat';
+  const caption = document.createElement('div');
+  caption.className = 'person-stat-label';
+  caption.textContent = label;
+  const amount = document.createElement('div');
+  amount.className = 'person-stat-value' + (date ? ' date' : '');
+  amount.textContent = value;
+  wrap.append(caption, amount);
+  return wrap;
+}
+
+function renderDashboard() {
+  const cards = $('dashboard-cards');
+  cards.replaceChildren();
+  for (const person of state.profiles) {
+    const card = document.createElement('article');
+    card.className = 'person-card';
+    const head = document.createElement('div');
+    head.className = 'person-head';
+    const name = document.createElement('div');
+    name.className = 'person-name';
+    name.textContent = person.name.trim() || 'Unnamed person';
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    const stats = document.createElement('div');
+    stats.className = 'person-stats';
+    const context = document.createElement('p');
+    context.className = 'person-context';
+
+    const todayText = today();
+    const todayDay = C.parseDate(todayText);
+    const prDay = C.parseDate(person.pr);
+    const futurePr = prDay !== null && prDay > todayDay;
+    // Dashboard values normally use today; a future PR date is a projection.
+    const summaryDate = futurePr ? person.pr : todayText;
+    const prepared = C.prepare({...person, asof: summaryDate});
+    let remaining = '—';
+    let date = '—';
+    let buttonLabel = 'Edit details';
+
+    if (person.checklist.ageGroup === 'under18') {
+      badge.textContent = 'Review requirements';
+      context.textContent = 'Minors have different citizenship pathways. Check the IRCC guidance in the details.';
+    } else if (prepared.errors.length) {
+      badge.textContent = 'Details needed';
+      context.textContent = prepared.errors[0] + ' Add or correct the details to see the estimate.';
+      buttonLabel = 'Add details';
+    } else {
+      const result = C.evaluate(prepared);
+      remaining = number(result.remaining);
+      badge.textContent = result.presenceMet ? 'Target reached' : 'In progress';
+      if (result.presenceMet) {
+        badge.className += ' reached';
+        date = 'Target reached';
+      } else {
+        const projected = C.forecast(prepared);
+        date = projected === null ? 'Not available' : readableDate(projected);
+      }
+      context.textContent = futurePr
+        ? `Projection from your entered PR date (${readableDate(prDay)}). Future status time is assumed. The date assumes no extra travel.`
+        : `As of ${readableDate(todayDay)} (counting through the day before). The tentative date assumes no extra travel beyond trips entered.`;
+    }
+
+    head.append(name, badge);
+    stats.append(makeMetric('Days left', remaining), makeMetric('Tentative date', date, true));
+    const edit = document.createElement('button');
+    edit.id = 'edit-person-' + person.id;
+    edit.type = 'button';
+    edit.className = 'secondary';
+    edit.textContent = buttonLabel;
+    edit.setAttribute('aria-label', `${buttonLabel} for ${person.name.trim() || 'this person'}`);
+    edit.onclick = () => showDetails(person.id);
+    card.append(head, stats, context, edit);
+    cards.append(card);
+  }
+}
+
+function showDashboard() {
+  save();
+  renderDashboard();
+  $('detail-view').hidden = true;
+  $('dashboard-view').hidden = false;
+  $('dashboard-title').focus();
+}
+
+function showDetails(personId) {
+  state.activeId = personId;
+  save();
+  render();
+  $('dashboard-view').hidden = true;
+  $('detail-view').hidden = false;
+  $('people-title').focus();
+}
+
 function compute() {
   const prepared = C.prepare(current());
   $('errors').textContent = prepared.errors.join(' ');
@@ -192,22 +299,23 @@ function render() {
 
 $('profile-select').onchange = event => { state.activeId = event.target.value; save(); render(); };
 $('profile-name').oninput = event => { current().name = event.target.value.slice(0, 80); save(); profileOptions(); };
-$('add-profile').onclick = () => {
+function addPerson() {
   const person = P.createProfile(`Person ${state.profiles.length + 1}`, today());
   state.profiles.push(person);
-  state.activeId = person.id;
-  save();
-  render();
+  showDetails(person.id);
   $('profile-name').focus();
   $('profile-name').select();
-};
+}
+$('add-profile').onclick = addPerson;
+$('dashboard-add-profile').onclick = addPerson;
+$('show-dashboard-top').onclick = showDashboard;
+$('show-dashboard-bottom').onclick = showDashboard;
 $('remove-profile').onclick = () => {
   if (state.profiles.length <= 1) return;
   if (!confirm(`Remove ${current().name || 'this person'} and their locally saved information?`)) return;
   state.profiles = state.profiles.filter(person => person.id !== state.activeId);
   state.activeId = state.profiles[0].id;
-  save();
-  render();
+  showDashboard();
 };
 for (const id of ['pr', 'asof']) $(id).onchange = event => { current()[id] = event.target.value; save(); compute(); };
 for (const [field, id] of Object.entries(fieldIds)) $(id).onchange = event => { current().checklist[field] = event.target.value; save(); checklist(); };
@@ -234,17 +342,22 @@ $('import-file').onchange = async event => {
     state.activeId = imported[0].id;
     const saved = save();
     render();
-    if (saved) $('storage-message').textContent = `Imported ${imported.length} profile(s) as additional people. Existing profiles were kept.`;
+    if (saved) storageMessage(`Imported ${imported.length} profile(s) as additional people. Existing profiles were kept.`);
   } catch (error) {
-    $('storage-message').textContent = error.message || 'Unable to read this backup.';
+    storageMessage(error.message || 'Unable to read this backup.');
   } finally {
     event.target.value = '';
   }
 };
 
-if (stored.blocked) $('storage-message').textContent = stored.error;
+if (stored.blocked) storageMessage(stored.error);
 else save(); // Also migrates the original single-person data without deleting it.
 render();
+showDashboard();
+
+document.addEventListener?.('visibilitychange', () => {
+  if (!document.hidden && !$('dashboard-view').hidden) renderDashboard();
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
